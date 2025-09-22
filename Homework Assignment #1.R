@@ -234,37 +234,40 @@ ts <- prob4.dat.2$t
 
 prob4.ques2 <- fpca_cust(F = Fmatrix, t = ts)
 
-f_mu <- colMeans(Fmatrix)
-mu.fun.mat <- matrix(f_mu, nrow = nrow(F.dat), ncol = ncol(F.dat), byrow = TRUE)
-F.dat.centered <- Fmatrix - mu.fun.mat
-
 
 #problem 5
 #Generate functional data as follows:  let f_i(t) = a_iPhi_1(t) + b_iPhi_(t)
 #where phi_1(t) = sqrt(cos(wi*t)), phi_2(t) = sqrt(2)cos(3*pi*t)
 #a_i, b_i ~ N(0,1)
 
-#number of curves grid size time sequence
-n <- 20
-m <- 50
-t <- seq(0,1,length.out=m)
-
-#phi functions
-phi1 <- sqrt(2)*cos(pi*t)
-phi2 <- sqrt(2)*cos(3*pi*t)
-
-#random coefficients
-a <- rnorm(n)
-b <- rnorm(n)
-
-#putting this together to create functional data
-F.dat <- matrix(NA, nrow = n, ncol = m)
-for (i in 1:n) {
-  F.dat[i, ] <- a[i] * phi1 + b[i] * phi2
+prob5 <- function(n = 20, m = 50){
+  #create time vector
+  t <- seq(0,1,length.out=m)
+  
+  #phi functions
+  phi1 <- sqrt(2)*cos(pi*t)
+  phi2 <- sqrt(2)*cos(3*pi*t)
+  
+  #random coefficients
+  a <- rnorm(n)
+  b <- rnorm(n)
+  
+  #putting this together to create functional data
+  F.dat <- matrix(NA, nrow = n, ncol = m)
+  for (i in 1:n) {
+    F.dat[i, ] <- a[i] * phi1 + b[i] * phi2
+  }
+  
+  #could probably create a list to return more stuff but eh
+  out <- list(Fmatrix = F.dat, t = t)
+  return(out)
 }
 
+#create functional data
+F.dat <- prob5() 
+
 #FPCA portion
-prob5 <- fpca_cust(F = F.dat, t = t)
+prob5 <- fpca_cust(F = F.dat$Fmatrix, t = F.dat$t)
 
 
 
