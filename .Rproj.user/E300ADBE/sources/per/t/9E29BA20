@@ -1,0 +1,28 @@
+{
+    "id": "9E29BA20",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1758305410703.0,
+    "source_on_save": false,
+    "relative_order": 4,
+    "properties": {
+        "id": "45f8467521d044c8813b0ccc0adb1009",
+        "name": "ridge_df",
+        "title": "ridge_df",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 2619280242320,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1758305410703,
+    "read_only": false,
+    "read_only_alternatives": []
+}

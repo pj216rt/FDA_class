@@ -1,0 +1,28 @@
+{
+    "id": "7FB925DE",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1758164610045.0,
+    "source_on_save": false,
+    "relative_order": 4,
+    "properties": {
+        "id": "1de77134a6e64e419fd1b3818c4a5c9f",
+        "name": "prob4.dat.1",
+        "title": "prob4.dat.1",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 3184103447865746537,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1758164610045,
+    "read_only": false,
+    "read_only_alternatives": []
+}
