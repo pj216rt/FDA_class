@@ -298,7 +298,7 @@ y <- prob6.dat$y0
 #plotting the functional data we have
 df_fun <- data.frame(
   t = rep(t, each = nrow(Fmat)),
-  curve = factor(rep(seq_len(n), times = ncol(Fmat))),
+  curve = factor(rep(seq_len(nrow(Fmat)), times = ncol(Fmat))),
   value = as.vector(Fmat)
 )
 
@@ -340,9 +340,11 @@ ridge_curves <- lapply(lambda_grid, function(lam) {
              method = paste0("Ridge λ=", lam))
 })
 
+#create dataframe for OLs and merge with dataframe for the ridge regression
 df_ols <- data.frame(t = t, beta = beta_fun_ols, method = "OLS")
 df_all <- rbind(df_ols, do.call(rbind, ridge_curves))
 
+#basic plot using expression
 ggplot(df_all, aes(x = t, y = beta, color = method)) +
   geom_line(linewidth = 1) +
   labs(title = "Scalar-on-Function Regression: OLS vs Ridge",
@@ -362,3 +364,105 @@ data.frame(
   Method = c("OLS", paste0("Ridge (lambda)=", lambda_grid)),
   RSS = c(rss_ols, rss_ridge)
 )
+
+#What if I want Cis?  Theres a nice analytical expression for OLS, but with ridge I
+#need to bootstrap?
+
+#function for OLs bands
+ols_bands_cf <- function(X, y, B, t, level = 0.95) {
+  n <- nrow(X)
+  p <- ncol(X)
+  fit <- lm.fit(x = X, y = y)
+  theta <- coef(fit)
+  beta_hat <- as.vector(B %*% theta)
+  
+  #variance
+  XtX <- crossprod(X)
+  rss <- sum((y - as.vector(X %*% theta))^2)
+  df <- n - p
+  sigma2 <- rss / df
+  Vtheta <- sigma2 * solve(XtX)
+
+  BV <- B %*% Vtheta
+  
+  #get diag of the covariance matrix and take square root
+  se_beta <- sqrt(diag(B %*% Vtheta %*% t(B)))
+  
+  #finding critical t value
+  alpha <- 1 - level
+  crit  <- qt(1 - alpha/2, df = df)
+  
+  #returning data
+  data.frame(
+    t = as.numeric(t),
+    beta = beta_hat,
+    lo = beta_hat - crit * se_beta,
+    hi = beta_hat + crit * se_beta,
+    method = "OLS"
+  )
+}
+
+
+#function for residual bootstrap
+#following setup here: https://faculty.washington.edu/yenchic/17Sp_403/Lec6-bootstrap_reg.pdf
+ridge_bands <- function(X, y, B, t, lambda, Bboot = 500, level = 0.95){
+  n <- nrow(X)
+  
+  #running ridge fit #1 and getting predicted coefficient values
+  fit <- glmnet(x = X, y = y, alpha = 0, lambda = lambda,
+                 intercept = FALSE, standardize = FALSE)
+  theta_hat <- as.numeric(coef(fit, s = lambda))[-1]
+  beta_hat  <- as.vector(B %*% theta_hat)
+  
+  #residual portion
+  yhat  <- as.vector(X %*% theta_hat)
+  resid <- y - yhat
+  
+  #bootstrap portion
+  boot_mat <- matrix(NA_real_, nrow = nrow(B), ncol = Bboot)
+  
+  for (b in seq_len(Bboot)) {
+    e_star <- sample(resid, size = n, replace = TRUE)
+    y_star <- yhat + e_star
+    
+    fit_b <- glmnet(x = X, y = y_star, alpha = 0, lambda = lambda,
+                    intercept = FALSE, standardize = FALSE)
+    theta_star <- as.numeric(coef(fit_b, s = lambda))[-1]
+    boot_mat[, b] <- as.vector(B %*% theta_star)
+  }
+  
+  #critical t value and create interval estimate
+  alpha <- 1 - level
+  lo <- apply(boot_mat, 1, quantile, probs = alpha/2, na.rm = TRUE)
+  hi <- apply(boot_mat, 1, quantile, probs = 1 - alpha/2, na.rm = TRUE)
+  
+  #pass dataframe
+  data.frame(
+    t = t,
+    beta = beta_hat, lo = lo, hi = hi,
+    method = paste0("Ridge (lambda=", lambda, ")")
+  )
+}
+
+#call everything
+#OLS portion
+df_ols_band <- ols_bands_cf(X, y, B, t, level = 0.95)
+
+#ridge bootstrap
+ridge_boot_list <- lapply(lambda_grid, function(lam) {
+  ridge_bands(X, y, B, t, lambda = lam, Bboot = 2000, level = 0.95)
+})
+df_ridge_band <- do.call(rbind, ridge_boot_list)
+
+
+#plotting everything
+df_all <- rbind(df_ols_band, df_ridge_band)
+
+ggplot(df_all, aes(x = t, y = beta, color = method, fill = method)) +
+  geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.18, color = NA) +
+  geom_line(linewidth = 1) +
+  facet_wrap(~ method, ncol = 2, scales = "free_y") + 
+  labs(title = expression(hat(beta)(t)~": OLS (closed-form) vs Ridge (bootstrap)"),
+       y = expression(beta(t)), x = "t") +
+  theme_minimal(base_size = 14) +
+  guides(fill = "none")
