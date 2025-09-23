@@ -282,141 +282,83 @@ prob5 <- fpca_cust(F = F.dat$Fmatrix, t = F.dat$t)
 
 view(pca.fd)
 
+
+
+
+
+
 #Problem 6
 prob6.dat <- readMat("Datasets/HW1/Problem 6/RegressionDataFile.mat")
 
 #set up data
-# Fmat <- prob6.dat$f0
-# t <- prob6.dat$t
-# y <- prob6.dat$y0
+Fmat <- prob6.dat$f0
+t <- as.numeric(prob6.dat$t)
+y <- prob6.dat$y0
 
-#functions to fit model with both ridge (penalized model) and unpenalized model
-ridge_fitting <- function(X, y, lambda){
-  p <- ncol(X)
-  XtX <- crossprod(X)
-  Xty <- crossprod(X, y)
-  theta <- solve(XtX + lambda * diag(p), Xty)
-
-  return(theta)
-}
-
-ols_fitting <- function(x, y){
-  p <- ncol(X)
-  XtX <- crossprod(X)
-  Xty <- crossprod(X, y)
-  theta <- solve(XtX, Xty)
-  
-  return(theta)
-}
-
-
-prob6.fun <- function(data, K){
-  #loading in data
-  Fmat <- data$f0
-  t <- data$t
-  y <- data$y0
-  
-  #basis function (B splines)
-  B <- bs(t, df=K, intercept = TRUE)
-  
-  #need to discretize 
-  dt <- diff(t)[1]
-  
-  #projecting functions onto basis space, with the dt added in
-  X <- Fmat %*% (B*dt)
-}
-
-#choose a basis.  Using B splines for this, bc we used Fourier for the previous.
-#need to choose the number of basis functions
-# K <- 10
-# B <- bs(t, df=K, intercept = TRUE)
-# 
-# #need to discretize 
-# dt <- diff(t)[1]
-
-
-#projecting functions onto basis space, with the dt added in
-# X <- Fmat %*% (B*dt)
-
-#fit
-fit <- lm(y ~ X - 1)
-summary(fit)
-beta_hat <- coef(fit)
-
-beta_hat_fun <- as.vector(B %*% beta_hat)
-
-#estimating residual variance
-resid <- resid(fit)
-df_res <- nrow(X) - ncol(X)
-sigma2 <- sum(resid^2) / df_res
-
-#covariance matrix of the coefficients
-#sigma^2 * crossprod of X
-XtX <- crossprod(X)             
-Vtheta <- sigma2 * solve(XtX)
-BV <- B %*% Vtheta
-beta_var <- rowSums(BV*B)
-se_beta <- sqrt(beta_var)
-
-#critical values
-crit <- qt(0.975, df = df_res)
-beta_lo <- beta_hat_fun - crit * se_beta
-beta_hi <- beta_hat_fun + crit * se_beta
-
-df_plot <- data.frame(
-  t = as.numeric(t),
-  beta = beta_hat_fun,
-  lo = beta_lo,
-  hi = beta_hi
+#plotting the functional data we have
+df_fun <- data.frame(
+  t = rep(t, each = nrow(Fmat)),
+  curve = factor(rep(seq_len(n), times = ncol(Fmat))),
+  value = as.vector(Fmat)
 )
 
-ggplot(df_plot, aes(x = t, y = beta)) +
-  geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.2, fill = "skyblue") +
-  geom_line(linewidth = 1) +
-  labs(
-    title = expression(hat(beta)(t)),
-    y = expression(hat(beta)(t)),
-    x = "t"
-  ) +
+ggplot(df_fun, aes(x = t, y = value, group = curve)) +
+  geom_line(alpha = 0.35) +
+  labs(title = "Original functional predictors F_i(t)",
+       x = "t", y = "F_i(t)") +
   theme_minimal(base_size = 14)
 
-ridge_confidence_intervals <- function(lambda){
-  #extract the coefficients
-  theta_ridge <- as.numeric(coef(fit_glmnet, s = lambda))[-1]
-  
-  #get the beta curve
-  beta_ridge <- as.vector(B %*% theta_ridge)
-  
-  #need to compute residuals manually
-  yhat <- as.vector(X %*% theta_ridge)
-  rss  <- sum((y - yhat)^2)
-}
 
-#comparing penalized regression (equivalent to ridge) to ridge
+
+#basis (B-splines) and design matrix
+K <- 5
+B  <- bs(t, df = K, intercept = TRUE)
+dt <- diff(t)[1]
+X  <- Fmat %*% (B*dt)
+
+
+#OLS fit 
+fit_ols <- lm(y ~ X -1)
+beta_hat_ols <- coef(fit_ols)
+beta_fun_ols <- as.vector(B %*% beta_hat_ols)
+
+#ridge (penalized)
 lambda_grid <- c(0.01, 0.1, 1, 10)
-fit_glmnet <- glmnet(
+fit_ridge <- glmnet(
   x = X, y = y,
-  alpha = 0,                
-  lambda = lambda_grid,     
+  alpha = 0,              
+  lambda = lambda_grid,
   intercept = FALSE,
   standardize = FALSE
 )
 
-ridge_df <- do.call(rbind, lapply(lambda_grid, ridge_confidence_intervals))
+#ridge coefficient curves
+ridge_curves <- lapply(lambda_grid, function(lam) {
+  theta <- as.numeric(coef(fit_ridge, s = lam))[-1]   
+  beta_fun <- as.vector(B %*% theta)
+  data.frame(t = t, beta = beta_fun,
+             method = paste0("Ridge λ=", lam))
+})
 
-df_compare <- data.frame(
-  t = as.numeric(t),
-  OLS = beta_hat_fun,
-  Ridge_0.1 = as.vector(B %*% coef(fit_glmnet, s = 0.1)[-1]),
-  Ridge_1   = as.vector(B %*% coef(fit_glmnet, s = 1)[-1])
+df_ols <- data.frame(t = t, beta = beta_fun_ols, method = "OLS")
+df_all <- rbind(df_ols, do.call(rbind, ridge_curves))
+
+ggplot(df_all, aes(x = t, y = beta, color = method)) +
+  geom_line(linewidth = 1) +
+  labs(title = "Scalar-on-Function Regression: OLS vs Ridge",
+       y = expression(beta(t)), x = "t") +
+  theme_minimal(base_size = 14)
+
+
+#compare RSS
+rss_ols <- sum(resid(fit_ols)^2)
+rss_ridge <- sapply(lambda_grid, function(lam) {
+  theta <- as.numeric(coef(fit_ridge, s = lam))[-1]
+  yhat  <- as.vector(X %*% theta)
+  sum((y - yhat)^2)
+})
+
+data.frame(
+  Method = c("OLS", paste0("Ridge (lambda)=", lambda_grid)),
+  RSS = c(rss_ols, rss_ridge)
 )
-
-df_long <- tidyr::pivot_longer(df_compare, -t, names_to="method", values_to="beta")
-
-ggplot(df_long, aes(x=t, y=beta, color=method)) +
-  geom_line(linewidth=1) +
-  labs(y=expression(beta(t)), title="OLS vs. Ridge Fits") +
-  theme_minimal(base_size=14)
-
-#effective df for ridge
-df_lambda <- function(lambda) sum(d / (d + lambda))
