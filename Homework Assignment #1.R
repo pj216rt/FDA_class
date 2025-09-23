@@ -150,7 +150,7 @@ fpca_cust <- function(F, t, K = 3){
   
   #estimating covariance operator
   n <- nrow(F.centered)
-  C_hat <- crossprod(F.centered)/n
+  C_hat <- crossprod(F.centered)*dt/n
   
   #eigen decomposition
   decomp <- eigen(C_hat, symmetric = TRUE)
@@ -213,6 +213,8 @@ fpca_cust <- function(F, t, K = 3){
   print(top_coef)
 }
 
+library(fda)
+
 
 #read in data
 #dataset 1
@@ -221,6 +223,15 @@ prob4.dat.1 <- readMat("Datasets/HW1/Problem 4/DataFile1_0_1.mat")
 #implementing FPCA.  Need to center the functions
 Fmatrix <- prob4.dat.1$f
 ts <- prob4.dat.1$t
+
+tvec    <- as.numeric(prob4.dat.1$t)
+nbasis <- 25
+basis  <- create.bspline.basis(rangeval = range(tvec), nbasis = nbasis, norder = 4)
+fd_raw <- Data2fd(y = t(Fmatrix), argvals = tvec, basisobj = basis)
+
+fun_pca <- pca.fd(fd_raw, nharm = 3)
+plot(fun_pca$harmonics, lwd = 3)
+fun_pca$varprop
 
 prob4.ques1 <- fpca_cust(F = Fmatrix, t = ts)
 
@@ -269,26 +280,63 @@ F.dat <- prob5()
 #FPCA portion
 prob5 <- fpca_cust(F = F.dat$Fmatrix, t = F.dat$t)
 
-
+view(pca.fd)
 
 #Problem 6
 prob6.dat <- readMat("Datasets/HW1/Problem 6/RegressionDataFile.mat")
 
 #set up data
-Fmat <- prob6.dat$f0
-t <- prob6.dat$t
-y <- prob6.dat$y0
+# Fmat <- prob6.dat$f0
+# t <- prob6.dat$t
+# y <- prob6.dat$y0
+
+#functions to fit model with both ridge (penalized model) and unpenalized model
+ridge_fitting <- function(X, y, lambda){
+  p <- ncol(X)
+  XtX <- crossprod(X)
+  Xty <- crossprod(X, y)
+  theta <- solve(XtX + lambda * diag(p), Xty)
+
+  return(theta)
+}
+
+ols_fitting <- function(x, y){
+  p <- ncol(X)
+  XtX <- crossprod(X)
+  Xty <- crossprod(X, y)
+  theta <- solve(XtX, Xty)
+  
+  return(theta)
+}
+
+
+prob6.fun <- function(data, K){
+  #loading in data
+  Fmat <- data$f0
+  t <- data$t
+  y <- data$y0
+  
+  #basis function (B splines)
+  B <- bs(t, df=K, intercept = TRUE)
+  
+  #need to discretize 
+  dt <- diff(t)[1]
+  
+  #projecting functions onto basis space, with the dt added in
+  X <- Fmat %*% (B*dt)
+}
 
 #choose a basis.  Using B splines for this, bc we used Fourier for the previous.
 #need to choose the number of basis functions
-K <- 10
-B <- bs(t, df=K, intercept = TRUE)
+# K <- 10
+# B <- bs(t, df=K, intercept = TRUE)
+# 
+# #need to discretize 
+# dt <- diff(t)[1]
 
-#need to discretize 
-dt <- t[5] - t[4] #evenly spaced
 
 #projecting functions onto basis space, with the dt added in
-X <- Fmat %*% (B*dt)
+# X <- Fmat %*% (B*dt)
 
 #fit
 fit <- lm(y ~ X - 1)
@@ -356,7 +404,19 @@ fit_glmnet <- glmnet(
 
 ridge_df <- do.call(rbind, lapply(lambda_grid, ridge_confidence_intervals))
 
+df_compare <- data.frame(
+  t = as.numeric(t),
+  OLS = beta_hat_fun,
+  Ridge_0.1 = as.vector(B %*% coef(fit_glmnet, s = 0.1)[-1]),
+  Ridge_1   = as.vector(B %*% coef(fit_glmnet, s = 1)[-1])
+)
 
+df_long <- tidyr::pivot_longer(df_compare, -t, names_to="method", values_to="beta")
+
+ggplot(df_long, aes(x=t, y=beta, color=method)) +
+  geom_line(linewidth=1) +
+  labs(y=expression(beta(t)), title="OLS vs. Ridge Fits") +
+  theme_minimal(base_size=14)
 
 #effective df for ridge
 df_lambda <- function(lambda) sum(d / (d + lambda))
