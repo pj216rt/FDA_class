@@ -151,11 +151,23 @@ fpca_cust <- function(F, t, K = 3){
   #estimating covariance operator
   n <- nrow(F.centered)
   C_hat <- crossprod(F.centered)*dt/n
-  
+
   #eigen decomposition
   decomp <- eigen(C_hat, symmetric = TRUE)
   lambda <- decomp$values
   psi <- decomp$vectors
+  
+  #svd decomp
+  # n <- nrow(F.centered)
+  # sv <- svd(F.centered/sqrt(n))
+  # psi_raw <- sv$v
+  # lambda  <- (sv$d)^2 * dt
+  # 
+  # psi <- psi_raw
+  # for (k in seq_len(ncol(psi))) {
+  #   nk <- sqrt(sum(psi_raw[,k]^2) * dt)
+  #   if (nk > 0) psi[,k] <- psi_raw[,k] / nk
+  # }
   
   #computing coefficients
   scores <- F.centered %*% (psi * dt)
@@ -367,6 +379,7 @@ data.frame(
 
 #What if I want Cis?  Theres a nice analytical expression for OLS, but with ridge I
 #need to bootstrap?
+#might be an issue here
 
 #function for OLs bands
 ols_bands_cf <- function(X, y, B, t, level = 0.95) {
