@@ -5,6 +5,7 @@ library(splines)
 library(glmnet)
 library(GGally)
 library(patchwork)
+library(splines2)
 
 #set seed
 set.seed(123456)
@@ -78,6 +79,11 @@ fourier_penalty <- function(K, order = 2) {
   return(P)
 }
 
+#function for parts b and c
+curve_fit <- function(t, K, Phi, W, lambda, R, y){
+  
+}
+
 #part b and c
 #definding basis functions, creating design matrix and penalty matrix
 K <- 5
@@ -129,8 +135,7 @@ estimation.plot <- ggplot() +
   #Adapt title for various Basis functions used
   labs(title = sprintf("Penalized Fourier LS: True vs Predictions (K = %d)", K),
        x = "t", y = "f(t)") +
-  #use the minimal theme with a larger text size
-  theme_minimal(base_size = 13) +
+  theme_dark(base_size = 13) + 
   #make legend key wider.  Might help since we use different line types
   theme(legend.title = element_text(),
         legend.key.width = unit(1.6, "lines"))
@@ -155,16 +160,8 @@ fpca_cust <- function(Ft, t, K = 3){
   #center the function
   F.centered <- scale(Ft, scale=F)
   
-  #assuming evenly spaced time points
+  #assuming evenly spaced time points, for later
   dt <- diff(as.vector(t))[1]
-  
-  #estimating covariance operator
-  C_hat <- crossprod(F.centered)/n
-  
-  #eigen decomposition
-  # decomp <- eigen(C_hat, symmetric = TRUE)
-  # lambda <- decomp$values
-  # psi <- decomp$vectors
   
   #svd decomp
   n <- nrow(F.centered)
@@ -324,161 +321,106 @@ ggplot(df_fun, aes(x = t, y = value, group = curve)) +
   theme_minimal(base_size = 14)
 
 
-
 #basis (B-splines) and design matrix
 K <- 5
 B  <- bs(t, df = K, intercept = TRUE)
 dt <- diff(t)[1]
 X  <- Fmat %*% (B*dt)
 
+#second difference penalty matrix
+D2 <- diff(diag(K), differences = 2)
+P  <- crossprod(D2)
 
-#OLS fit 
-fit_ols <- lm(y ~ X -1)
-beta_hat_ols <- coef(fit_ols)
-beta_fun_ols <- as.vector(B %*% beta_hat_ols)
-
-#ridge (penalized)
-lambda_grid <- c(0.01, 0.1, 1, 10)
-fit_ridge <- glmnet(
-  x = X, y = y,
-  alpha = 0,              
-  lambda = lambda_grid,
-  intercept = FALSE,
-  standardize = FALSE
-)
-
-#ridge coefficient curves
-ridge_curves <- lapply(lambda_grid, function(lam) {
-  theta <- as.numeric(coef(fit_ridge, s = lam))[-1]   
-  beta_fun <- as.vector(B %*% theta)
-  data.frame(t = t, beta = beta_fun,
-             method = paste0("Ridge λ=", lam))
-})
-
-#create dataframe for OLs and merge with dataframe for the ridge regression
-df_ols <- data.frame(t = t, beta = beta_fun_ols, method = "OLS")
-df_all <- rbind(df_ols, do.call(rbind, ridge_curves))
-
-#basic plot using expression
-ggplot(df_all, aes(x = t, y = beta, color = method)) +
-  geom_line(linewidth = 1) +
-  labs(title = "Scalar-on-Function Regression: OLS vs Ridge",
-       y = expression(beta(t)), x = "t") +
-  theme_minimal(base_size = 14)
-
-
-#compare RSS
-rss_ols <- sum(resid(fit_ols)^2)
-rss_ridge <- sapply(lambda_grid, function(lam) {
-  theta <- as.numeric(coef(fit_ridge, s = lam))[-1]
-  yhat  <- as.vector(X %*% theta)
-  sum((y - yhat)^2)
-})
-
-data.frame(
-  Method = c("OLS", paste0("Ridge (lambda)=", lambda_grid)),
-  RSS = c(rss_ols, rss_ridge)
-)
-
-#What if I want Cis?  Theres a nice analytical expression for OLS, but with ridge I
-#need to bootstrap?
-#might be an issue here
-
-#function for OLs bands
-ols_bands_cf <- function(X, y, B, t, level = 0.95) {
-  n <- nrow(X)
-  p <- ncol(X)
-  fit <- lm.fit(x = X, y = y)
-  theta <- coef(fit)
-  beta_hat <- as.vector(B %*% theta)
+#function to build continuous penalty
+q6.pen <- function(K, t, M){
+  t_pen <- seq(t[1], t[2], length.out = M)
   
-  #variance
-  XtX <- crossprod(X)
-  rss <- sum((y - as.vector(X %*% theta))^2)
-  df <- n - p
-  sigma2 <- rss / df
-  Vtheta <- sigma2 * solve(XtX)
-
-  BV <- B %*% Vtheta
+  #getting the stepsize
+  h <- (t_pen[2] - t_pen[1])
   
-  #get diag of the covariance matrix and take square root
-  se_beta <- sqrt(diag(B %*% Vtheta %*% t(B)))
+  #weights
+  w <- c(h/2, rep(h, M-2), h/2)
   
-  #finding critical t value
-  alpha <- 1 - level
-  crit  <- qt(1 - alpha/2, df = df)
+  #get B splines and second derivatives of B splines
+  B2 <- bSpline(t_pen, df = K, intercept = TRUE, derivs = 2)
   
-  #returning data
-  data.frame(
-    t = as.numeric(t),
-    beta = beta_hat,
-    lo = beta_hat - crit * se_beta,
-    hi = beta_hat + crit * se_beta,
-    method = "OLS"
-  )
-}
-
-
-#function for residual bootstrap
-#following setup here: https://faculty.washington.edu/yenchic/17Sp_403/Lec6-bootstrap_reg.pdf
-ridge_bands <- function(X, y, B, t, lambda, Bboot = 500, level = 0.95){
-  n <- nrow(X)
+  #initialize penalty matrix
+  P <- matrix(0, nrow = K, ncol = K)
   
-  #running ridge fit #1 and getting predicted coefficient values
-  fit <- glmnet(x = X, y = y, alpha = 0, lambda = lambda,
-                 intercept = FALSE, standardize = FALSE)
-  theta_hat <- as.numeric(coef(fit, s = lambda))[-1]
-  beta_hat  <- as.vector(B %*% theta_hat)
-  
-  #residual portion
-  yhat  <- as.vector(X %*% theta_hat)
-  resid <- y - yhat
-  
-  #bootstrap portion
-  boot_mat <- matrix(NA_real_, nrow = nrow(B), ncol = Bboot)
-  
-  for (b in seq_len(Bboot)) {
-    e_star <- sample(resid, size = n, replace = TRUE)
-    y_star <- yhat + e_star
-    
-    fit_b <- glmnet(x = X, y = y_star, alpha = 0, lambda = lambda,
-                    intercept = FALSE, standardize = FALSE)
-    theta_star <- as.numeric(coef(fit_b, s = lambda))[-1]
-    boot_mat[, b] <- as.vector(B %*% theta_star)
+  #loop
+  for (i in 1:K) {
+    for (j in i:K) {   
+      val <- sum(w * B2[, i] * B2[, j])
+      P[i, j] <- val
+      P[j, i] <- val
+    }
   }
   
-  #critical t value and create interval estimate
-  alpha <- 1 - level
-  lo <- apply(boot_mat, 1, quantile, probs = alpha/2, na.rm = TRUE)
-  hi <- apply(boot_mat, 1, quantile, probs = 1 - alpha/2, na.rm = TRUE)
+  return(P)
+}
+
+test <- q6.pen(K=5, t = t, M = 500)
+
+P
+test
+
+
+t_dense <- seq(min(t), max(t), length.out = 200)
+B_dense <- bs(t_dense, df = K, intercept = TRUE)
+
+XtX <- crossprod(X)
+Xty <- crossprod(X, y)
+
+lambda_grid <- c(0, 1e-4, 1e-3, 1e-2, 1e-1, 1)
+
+# Helper to fit and return a data.frame for plotting
+fit_one_lambda <- function(lam) {
+  A      <- XtX + (lam*P)
+  S      <- solve(A, t(X))                     # K x n  (y2cMap)
+  H      <- X %*% S                             # n x n  (y2yMap)
+  y_hat  <- as.vector(H %*% y)
   
-  #pass dataframe
+  # effective df and sigma^2
+  df_eff      <- sum(diag(H))
+  sigma2_hat  <- sum((y - y_hat)^2) / (nrow(Fmat) - df_eff)
+  
+  # L_* = B_dense %*% S (maps y -> beta(t_*))
+  L_star <- B_dense %*% S                      # m* x n
+  beta_hat_dense <- as.vector(L_star %*% y)
+  
+  # Var{beta_hat(t)} = sigma^2 * rowSums(L_*^2)
+  beta_var_dense <- sigma2_hat * rowSums(L_star * L_star)
+  beta_se_dense  <- sqrt(beta_var_dense)
+  
+  z <- qnorm(0.975)
+  beta_lo <- beta_hat_dense - z * beta_se_dense
+  beta_hi <- beta_hat_dense + z * beta_se_dense
+  
+  lambda_lab <- paste0("λ=", format(lam, scientific = TRUE, digits = 2),
+                       "\n df=", sprintf("%.1f", df_eff))
+  
   data.frame(
-    t = t,
-    beta = beta_hat, lo = lo, hi = hi,
-    method = paste0("Ridge (lambda=", lambda, ")")
+    t    = t_dense,
+    beta = beta_hat_dense,
+    lo   = beta_lo,
+    hi   = beta_hi,
+    lambda = lam,
+    lambda_lab = lambda_lab,
+    df_eff = df_eff
   )
 }
 
-#call everything
-#OLS portion
-df_ols_band <- ols_bands_cf(X, y, B, t, level = 0.95)
+# Run the sweep
+df_all <- do.call(rbind, lapply(lambda_grid, fit_one_lambda))
 
-#ridge bootstrap
-ridge_boot_list <- lapply(lambda_grid, function(lam) {
-  ridge_bands(X, y, B, t, lambda = lam, Bboot = 2000, level = 0.95)
-})
-df_ridge_band <- do.call(rbind, ridge_boot_list)
-
-
-#plotting everything
-df_all <- rbind(df_ols_band, df_ridge_band)
-
-ggplot(df_all, aes(x = t, y = beta, color = method, fill = method)) +
-  geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.18, color = NA) +
+# Facetted plot
+ggplot(df_all, aes(x = t, y = beta)) +
+  geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.18) +
   geom_line(linewidth = 1) +
-  facet_wrap(~ method, ncol = 2, scales = "free_y") + 
-  labs(title = expression(hat(beta)(t)~": OLS (closed-form) vs Ridge (bootstrap)"),
-       y = expression(beta(t)), x = "t") +
-  theme_minimal(base_size = 14) +
-  guides(fill = "none")
+  facet_wrap(~ lambda_lab, ncol = 3) +
+  labs(
+    title = expression(hat(beta)(t) ~ "with 95% pointwise CI across" ~ lambda),
+    x = "t",
+    y = expression(hat(beta)(t))
+  ) +
+  theme_minimal(base_size = 14)
