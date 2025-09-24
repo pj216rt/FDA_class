@@ -4,6 +4,7 @@ library(R.matlab)
 library(splines)
 library(glmnet)
 library(GGally)
+library(patchwork)
 
 #set seed
 set.seed(123456)
@@ -138,38 +139,40 @@ estimation.plot
 
 #Problem 4
 #Write code to do FPCA
-fpca_cust <- function(F, t, K = 3){
+fpca_cust <- function(Ft, t, K = 3){
   
-  #center the functional data
-  mu <- colMeans(F)
-  mu.fun.mat <- matrix(mu, nrow = nrow(F), ncol = ncol(F), byrow = TRUE)
-  F.centered <- F - mu
+  #get the mean function by column
+  mu <- colMeans(Ft)
+
+  #center the function
+  F.centered <- scale(Ft, scale=F)
   
   #assuming evenly spaced time points
   dt <- diff(as.vector(t))[1]
   
   #estimating covariance operator
   n <- nrow(F.centered)
-  C_hat <- crossprod(F.centered)*dt/n
-
+  C_hat <- crossprod(F.centered)/n
+  #C_hat <- cov(Ft)
+  
   #eigen decomposition
-  decomp <- eigen(C_hat, symmetric = TRUE)
-  lambda <- decomp$values
-  psi <- decomp$vectors
+  # decomp <- eigen(C_hat, symmetric = TRUE)
+  # lambda <- decomp$values
+  # psi <- decomp$vectors
   
   #svd decomp
-  # n <- nrow(F.centered)
-  # sv <- svd(F.centered/sqrt(n))
-  # psi_raw <- sv$v
-  # lambda  <- (sv$d)^2 * dt
-  # 
-  # psi <- psi_raw
-  # for (k in seq_len(ncol(psi))) {
-  #   nk <- sqrt(sum(psi_raw[,k]^2) * dt)
-  #   if (nk > 0) psi[,k] <- psi_raw[,k] / nk
-  # }
+  n <- nrow(F.centered)
+  sv <- svd(F.centered/sqrt(n))
+  
+  #get the principal directions
+  psi <- sv$v
+  
+  #square the singular values to get eigenvalues
+  #dt bc we are approximating the inner product integral with a sum
+  lambda  <- (sv$d)^2 * dt
   
   #computing coefficients
+  #get one score for each function
   scores <- F.centered %*% (psi * dt)
   
   #getting into the plotting mechanisms now
@@ -187,10 +190,10 @@ fpca_cust <- function(F, t, K = 3){
   df_psi <- data.frame(t = as.vector(t), psiK)
   
   #pivotting longer for plotting
-  psi_long <- tidyr::pivot_longer(df_psi, -t, names_to = "Component", values_to = "Value")
-  eigen.vector_plot <- ggplot(psi_long, aes(x = t, y = Value, color = Component)) +
+  psi_long <- tidyr::pivot_longer(df_psi, -t, names_to = "Direction", values_to = "Value")
+  eigen.vector_plot <- ggplot(psi_long, aes(x = t, y = Value, color = Direction)) +
     geom_line(linewidth = 1) +
-    labs(title = paste0("Leading Eigenfunctions (Top ", K, ")"),
+    labs(title = paste0("Leading FPCA Directions (Top ", K, ")"),
          x = "t", y = "Eigenfunction Value") +
     theme_minimal()
   
@@ -223,10 +226,11 @@ fpca_cust <- function(F, t, K = 3){
   
   top_coef <- ggpairs(scores_df, title = paste("Pairwise Scatter of Top", K, "FPCA Coefficients"))
   print(top_coef)
+  
+  #combining everything
+  print(mean_plot + eigen.vector_plot)
+  
 }
-
-library(fda)
-
 
 #read in data
 #dataset 1
@@ -235,15 +239,6 @@ prob4.dat.1 <- readMat("Datasets/HW1/Problem 4/DataFile1_0_1.mat")
 #implementing FPCA.  Need to center the functions
 Fmatrix <- prob4.dat.1$f
 ts <- prob4.dat.1$t
-
-tvec    <- as.numeric(prob4.dat.1$t)
-nbasis <- 25
-basis  <- create.bspline.basis(rangeval = range(tvec), nbasis = nbasis, norder = 4)
-fd_raw <- Data2fd(y = t(Fmatrix), argvals = tvec, basisobj = basis)
-
-fun_pca <- pca.fd(fd_raw, nharm = 3)
-plot(fun_pca$harmonics, lwd = 3)
-fun_pca$varprop
 
 prob4.ques1 <- fpca_cust(F = Fmatrix, t = ts)
 
@@ -255,7 +250,7 @@ prob4.dat.2 <- readMat("Datasets/HW1/Problem 4/DataFile1_0_2.mat")
 Fmatrix <- prob4.dat.2$f
 ts <- prob4.dat.2$t
 
-prob4.ques2 <- fpca_cust(F = Fmatrix, t = ts)
+prob4.ques2 <- fpca_cust(Ft = Fmatrix, t = ts)
 
 
 #problem 5
@@ -290,7 +285,7 @@ prob5 <- function(n = 20, m = 50){
 F.dat <- prob5() 
 
 #FPCA portion
-prob5 <- fpca_cust(F = F.dat$Fmatrix, t = F.dat$t)
+prob5 <- fpca_cust(Ft = F.dat$Fmatrix, t = F.dat$t)
 
 view(pca.fd)
 
