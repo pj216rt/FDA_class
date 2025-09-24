@@ -140,9 +140,18 @@ estimation.plot
 #Problem 4
 #Write code to do FPCA
 fpca_cust <- function(Ft, t, K = 3){
+  n  <- nrow(Ft); m <- ncol(Ft)
   
   #get the mean function by column
   mu <- colMeans(Ft)
+  
+  #plot, want plot of mean function
+  df_mu <- data.frame(t = as.vector(t), mu = mu)
+  mean_plot <- ggplot(df_mu, aes(x = t, y = mu)) +
+    geom_line(linewidth = 1) +
+    labs(title = "Mean Function", x = "t", y = "Mean f(t)") +
+    theme_minimal()
+  print(mean_plot)
 
   #center the function
   F.centered <- scale(Ft, scale=F)
@@ -151,9 +160,7 @@ fpca_cust <- function(Ft, t, K = 3){
   dt <- diff(as.vector(t))[1]
   
   #estimating covariance operator
-  n <- nrow(F.centered)
   C_hat <- crossprod(F.centered)/n
-  #C_hat <- cov(Ft)
   
   #eigen decomposition
   # decomp <- eigen(C_hat, symmetric = TRUE)
@@ -176,13 +183,20 @@ fpca_cust <- function(Ft, t, K = 3){
   scores <- F.centered %*% (psi * dt)
   
   #getting into the plotting mechanisms now
-  #plot, want plot of mean function
-  df_mu <- data.frame(t = as.vector(t), mu = mu)
-  mean_plot <- ggplot(df_mu, aes(x = t, y = mu)) +
-    geom_line(linewidth = 1) +
-    labs(title = "Mean Function", x = "t", y = "Mean f(t)") +
+  #plotting raw data first
+  df_mu <- data.frame(t = t, mu = mu)
+  df_raw <- data.frame(
+    id    = factor(rep(seq_len(n), times = m)),  
+    t     = rep(t, each = n),                    
+    value = as.vector(Ft)             
+  )
+  
+  raw_plot <- ggplot(df_raw, aes(x = t, y = value, group = id)) +
+    geom_line(alpha = 0.25) +
+    labs(title = "Raw Functions", x = "t", y = "f(t)") +
     theme_minimal()
-  print(mean_plot)
+  print(raw_plot)
+  
   
   #getting the K dominant directions
   psiK <- psi[, seq_len(K), drop = FALSE]
@@ -228,8 +242,7 @@ fpca_cust <- function(Ft, t, K = 3){
   print(top_coef)
   
   #combining everything
-  print(mean_plot + eigen.vector_plot)
-  
+  print(raw_plot / (mean_plot + eigen.vector_plot))
 }
 
 #read in data
@@ -277,7 +290,7 @@ prob5 <- function(n = 20, m = 50){
   }
   
   #could probably create a list to return more stuff but eh
-  out <- list(Fmatrix = F.dat, t = t)
+  out <- list(Fmatrix = as.matrix(F.dat), t = t)
   return(out)
 }
 
@@ -285,11 +298,7 @@ prob5 <- function(n = 20, m = 50){
 F.dat <- prob5() 
 
 #FPCA portion
-prob5 <- fpca_cust(Ft = F.dat$Fmatrix, t = F.dat$t)
-
-view(pca.fd)
-
-
+problem5 <- fpca_cust(Ft = F.dat$Fmatrix, t = F.dat$t)
 
 
 
