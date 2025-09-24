@@ -114,7 +114,6 @@ df_pred <- bind_rows(fits) %>%
 df_true   <- data.frame(t = t_dense, true = y_true_dense)
 df_points <- data.frame(t = t_points, y = y_values)
 
-
 estimation.plot <- ggplot() +
   #draw the true function as a black line
   geom_line(data = df_true, aes(x = t, y = true), linewidth = 1.2, color = "black") +
@@ -132,7 +131,7 @@ estimation.plot <- ggplot() +
        x = "t", y = "f(t)") +
   #use the minimal theme with a larger text size
   theme_minimal(base_size = 13) +
-  #make legend key wider.  Might help since we use different linetypes
+  #make legend key wider.  Might help since we use different line types
   theme(legend.title = element_text(),
         legend.key.width = unit(1.6, "lines"))
 estimation.plot
