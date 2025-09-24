@@ -325,7 +325,24 @@ ggplot(df_fun, aes(x = t, y = value, group = curve)) +
 K <- 5
 B  <- bs(t, df = K, intercept = TRUE)
 dt <- diff(t)[1]
-X  <- Fmat %*% (B*dt)
+
+#for trapezoid rule
+wt_obs <- c(dt/2, rep(dt, length(t)-2), dt/2)
+# X  <- Fmat %*% (B*dt)
+
+#trying to keep the same notation as Silverman
+Phi <- Fmat %*% (B*wt_obs)
+
+#weight matrix
+W <- diag(nrow(Phi))
+
+#precompute
+PhiT_W <- t(Phi) %*% W
+PhiT_W_Phi <- PhiT_W %*% Phi
+
+t_dense <- seq(min(t), max(t), length.out = 200)
+B_dense <- bs(t_dense, df = K, intercept = TRUE)
+L <- B_dense
 
 #second difference penalty matrix
 D2 <- diff(diag(K), differences = 2)
@@ -366,50 +383,43 @@ test <- q6.pen(K=5, t = t, M = 500)
 P
 test
 
-
-t_dense <- seq(min(t), max(t), length.out = 200)
-B_dense <- bs(t_dense, df = K, intercept = TRUE)
-
-XtX <- crossprod(X)
-Xty <- crossprod(X, y)
-
-lambda_grid <- c(0, 1)
+lambda_grid <- c(0, 0.5, 1, 5)
 
 #function to fit and return CIs for one lambda
-fit_one_lambda <- function(lam) {
-  A      <- XtX + (lam*test)
-  S      <- solve(A, t(X))
+fit_one_lambda <- function(lambda) {
+  A <- A <- PhiT_W_Phi + (lambda*P)
+  S <- solve(A, PhiT_W) 
   
-  #Phi*S (pg 104)
-  H      <- X %*% S                             
-  y_hat  <- as.vector(H %*% y)
+  #coefficients and predicted values
+  chat <- as.vector(S %*% y)
+  yhat <- as.vector(Phi %*% chat)
   
-  #df and sigma^2 (pg 89 in textbook)
-  df_eff      <- sum(diag(H))
-  sigma2_hat  <- sum((y - y_hat)^2) / (nrow(Fmat) - df_eff)
+  #degrees of freedom
+  Hdiag  <- rowSums(Phi * t(S))
+  df_eff <- sum(Hdiag)
   
-  L_star <- B_dense %*% S                      
-  beta_hat_dense <- as.vector(L_star %*% y)
+  #estimate of sigma^2
+  n <- nrow(Phi)
+  sigma2_hat <- sum((y - yhat)^2) / (n - df_eff)
   
-  beta_var_dense <- sigma2_hat * rowSums(L_star * L_star)
-  beta_se_dense  <- sqrt(beta_var_dense)
+  #computing variance and CIS
+  LS <- L %*% S
+  beta_var <- sigma2_hat * rowSums(LS*LS)
+  beta_hat <- as.vector(L %*% chat)
+  beta_se  <- sqrt(beta_var)
   
-  #finding critical for 95% CI and building lower and upper bounds
+  #critical Z value for 95% CI
   z <- qnorm(0.975)
-  beta_lo <- beta_hat_dense - (z*beta_se_dense)
-  beta_hi <- beta_hat_dense + (z*beta_se_dense)
   
-  lambda_lab <- paste0("Lambda=", lam,
-                       "\n df=", sprintf("%.1f", df_eff))
-  
+  #create dataframe for outputs
   data.frame(
-    t    = t_dense,
-    beta = beta_hat_dense,
-    lo   = beta_lo,
-    hi   = beta_hi,
-    lambda = lam,
-    lambda_lab = lambda_lab,
-    df_eff = df_eff
+    t        = t_dense,
+    beta     = beta_hat,
+    lo       = beta_hat - (z*beta_se),
+    hi       = beta_hat + (z*beta_se),
+    lambda   = lambda,
+    lambda_lab = paste0("Lambda=", lambda),
+    df_eff   = df_eff
   )
 }
 
@@ -421,7 +431,7 @@ ggplot(df_all, aes(x = t, y = beta)) +
   geom_line(linewidth = 1) +
   facet_wrap(~ lambda_lab, ncol = 3) +
   labs(
-    title = expression(hat(beta)(t) ~ "with 95% pointwise CI for Unpenalized/Unpenalized regression"),
+    title = expression(hat(beta)(t) ~ "with 95% pointwise CI for Penalized/Unpenalized regression"),
     subtitle = "95% Confidence Intervals Shown",
     x = "t",
     y = expression(hat(beta)(t))
