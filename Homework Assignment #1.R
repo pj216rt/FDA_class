@@ -361,6 +361,8 @@ q6.pen <- function(K, t, M){
 
 test <- q6.pen(K=5, t = t, M = 500)
 
+#two different penalty matrices.  One based on second differences.  The other based
+#on approximating the integral
 P
 test
 
@@ -371,32 +373,33 @@ B_dense <- bs(t_dense, df = K, intercept = TRUE)
 XtX <- crossprod(X)
 Xty <- crossprod(X, y)
 
-lambda_grid <- c(0, 1e-4, 1e-3, 1e-2, 1e-1, 1)
+lambda_grid <- c(0, 1)
 
-# Helper to fit and return a data.frame for plotting
+#function to fit and return CIs for one lambda
 fit_one_lambda <- function(lam) {
-  A      <- XtX + (lam*P)
-  S      <- solve(A, t(X))                     # K x n  (y2cMap)
-  H      <- X %*% S                             # n x n  (y2yMap)
+  A      <- XtX + (lam*test)
+  S      <- solve(A, t(X))
+  
+  #Phi*S (pg 104)
+  H      <- X %*% S                             
   y_hat  <- as.vector(H %*% y)
   
-  # effective df and sigma^2
+  #df and sigma^2 (pg 89 in textbook)
   df_eff      <- sum(diag(H))
   sigma2_hat  <- sum((y - y_hat)^2) / (nrow(Fmat) - df_eff)
   
-  # L_* = B_dense %*% S (maps y -> beta(t_*))
-  L_star <- B_dense %*% S                      # m* x n
+  L_star <- B_dense %*% S                      
   beta_hat_dense <- as.vector(L_star %*% y)
   
-  # Var{beta_hat(t)} = sigma^2 * rowSums(L_*^2)
   beta_var_dense <- sigma2_hat * rowSums(L_star * L_star)
   beta_se_dense  <- sqrt(beta_var_dense)
   
+  #finding critical for 95% CI and building lower and upper bounds
   z <- qnorm(0.975)
-  beta_lo <- beta_hat_dense - z * beta_se_dense
-  beta_hi <- beta_hat_dense + z * beta_se_dense
+  beta_lo <- beta_hat_dense - (z*beta_se_dense)
+  beta_hi <- beta_hat_dense + (z*beta_se_dense)
   
-  lambda_lab <- paste0("λ=", format(lam, scientific = TRUE, digits = 2),
+  lambda_lab <- paste0("Lambda=", lam,
                        "\n df=", sprintf("%.1f", df_eff))
   
   data.frame(
@@ -410,16 +413,16 @@ fit_one_lambda <- function(lam) {
   )
 }
 
-# Run the sweep
 df_all <- do.call(rbind, lapply(lambda_grid, fit_one_lambda))
 
-# Facetted plot
+#plot this
 ggplot(df_all, aes(x = t, y = beta)) +
   geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.18) +
   geom_line(linewidth = 1) +
   facet_wrap(~ lambda_lab, ncol = 3) +
   labs(
-    title = expression(hat(beta)(t) ~ "with 95% pointwise CI across" ~ lambda),
+    title = expression(hat(beta)(t) ~ "with 95% pointwise CI for Unpenalized/Unpenalized regression"),
+    subtitle = "95% Confidence Intervals Shown",
     x = "t",
     y = expression(hat(beta)(t))
   ) +
