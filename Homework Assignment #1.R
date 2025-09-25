@@ -380,10 +380,10 @@ test <- q6.pen(K=5, t = t, M = 500)
 
 #two different penalty matrices.  One based on second differences.  The other based
 #on approximating the integral
-P
-test
+# P
+# test
 
-lambda_grid <- c(0, 0.5, 1, 5)
+lambda_grid <- c(0, 0.5, 1, 5, 50, 100)
 
 #function to fit and return CIs for one lambda
 fit_one_lambda <- function(lambda) {
@@ -400,7 +400,7 @@ fit_one_lambda <- function(lambda) {
   
   #estimate of sigma^2
   n <- nrow(Phi)
-  sigma2_hat <- sum((y - yhat)^2) / (n - df_eff)
+  sigma2_hat <- sum((y - yhat)^2) / (n-df_eff)
   
   #computing variance and CIS
   LS <- L %*% S
