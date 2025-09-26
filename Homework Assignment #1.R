@@ -328,7 +328,7 @@ dt <- diff(t)[1]
 
 #for trapezoid rule
 wt_obs <- c(dt/2, rep(dt, length(t)-2), dt/2)
-# X  <- Fmat %*% (B*dt)
+#X  <- Fmat %*% (B*dt)
 
 #trying to keep the same notation as Silverman
 Phi <- Fmat %*% (B*wt_obs)
