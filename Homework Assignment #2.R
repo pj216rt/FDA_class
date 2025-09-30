@@ -50,7 +50,7 @@ problem2 <- function(p, q, n_steps = 1000){
 }
 
 
-num.points = 25
+num.points = 500
 time.grid <- seq(0,1,length.out = num.points)
 
 #building points
@@ -79,3 +79,37 @@ legend("topright", legend = c("f1","f2"),
 #problem 3
 #problem 3 asks for us to write function to compute exponential exp and inverse 
 #exponential maps on a unit Hilbert sphere
+
+#function for inverse exponential mapping
+#returns tangent vector
+inv_exp_mapping <- function(p,q){
+  #normalizing
+  p <- p / sqrt(sum(p^2))
+  q <- q / sqrt(sum(q^2))
+  
+  #computing angle
+  angle <- acos(sum(p*q))
+  
+  #formula for inverse exponential (logarithmic???) mapping
+  out <- (angle / sin(angle))*(q-cos(angle)*p)
+  
+  return(out)
+}
+
+#function for exponential mapping
+#returns tangent vector back to the sphere
+exp_mapping <- function(p, v){
+  #scaling and normalizing
+  p <- p / sqrt(sum(p^2))
+  v_norm <- sqrt(sum(v^2))
+  
+  #formula for exponential mapping
+  out <- (cos(v_norm)*p) + (sin(v_norm)*(v/v_norm))
+  
+  return(out)
+}
+
+#computing inverse exponent of f2 and then compute exp(v)
+v = inv_exp_mapping(f1, f2)
+exp_v <- exp_mapping(f1,v)
+
