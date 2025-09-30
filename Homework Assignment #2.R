@@ -4,10 +4,17 @@ library(tidyverse)
 #problem 2
 #program to compute and display geodesic path between any two points
 #looking at equation 2.8 in Anuj's book
+#working with S^infinty, points are functions on [0,1]
 
 #function to build test functions
 f_t <- function(t, a, b){
-  part1 <- beta(a,b)
+  part1 <- t^(a-1)
+  part2 <- part1*(1-t)^(b-1)
+  part3 <- part2/beta(a,b)
+  part4 <- sqrt(part3)
+  
+  #return
+  return(part4)
 }
 
 problem2 <- function(p, q, n_steps = 1000){
@@ -41,3 +48,34 @@ problem2 <- function(p, q, n_steps = 1000){
   #return the path
   return(path)
 }
+
+
+num.points = 25
+time.grid <- seq(0,1,length.out = num.points)
+
+#building points
+f1 <- f_t(time.grid, a = 2, b = 5)
+f2 <- f_t(time.grid, a = 2, b = 2)
+
+
+#rows are functions, columns are values of a function at a time point
+#smooth function connecting f1 and f2?
+path <- problem2(p=f1, q=f2, n_steps = 11)
+
+yr <- range(c(path, f1, f2))
+
+matplot(time.grid, t(path), type = "l", lty = 1, lwd = 1,
+        xlab = "t", ylab = "f(t)",
+        main = "Geodesic Path from f1 to f2",
+        ylim = yr)
+
+#endpoints
+lines(time.grid, f1, lwd = 2, col = "red")
+lines(time.grid, f2, lwd = 2, col = "blue")
+legend("topright", legend = c("f1","f2"),
+       col = c("red","blue"), lwd = 2)
+
+
+#problem 3
+#problem 3 asks for us to write function to compute exponential exp and inverse 
+#exponential maps on a unit Hilbert sphere
