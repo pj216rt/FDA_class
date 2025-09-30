@@ -1,5 +1,6 @@
 #hw2
 library(tidyverse)
+library(R.matlab)
 
 #problem 2
 #program to compute and display geodesic path between any two points
@@ -113,3 +114,24 @@ exp_mapping <- function(p, v){
 v = inv_exp_mapping(f1, f2)
 exp_v <- exp_mapping(f1,v)
 
+#may need to compute the norm
+
+
+
+#problem 4
+#intrinsic mean and the Ferchet mean?
+
+#need function for the "raw" mean
+
+
+
+#loading in data for S2
+S2.dat1 <- readMat("Datasets/HW2/Problem 4/S2DataFile1.mat")
+dat1.X <- S2.dat1$x
+X <- t(dat1.X)
+
+
+Xu <- X/rowSums(X*X)
+mu <- colMeans(Xu)
+mu / sqrt(sum(mu*mu))
+     
