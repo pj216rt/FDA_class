@@ -134,4 +134,26 @@ X <- t(dat1.X)
 Xu <- X/rowSums(X*X)
 mu <- colMeans(Xu)
 mu / sqrt(sum(mu*mu))
-     
+
+
+#Problem 5
+#given a set of pdfs on [0,1].  Need to cluster them according to Fisher-Rao
+
+p5.dat <- readMat("Datasets/HW2/Problem 5/PdfClusteringData.mat")
+str(p5.dat)
+
+#part 1.  compute the pairwise distance matrix
+p5.t <- p5.dat$t
+p5.f <- p5.dat$f     
+
+#need to compute an integral of a square root of products
+
+dist.mat <- function(funs, t){
+  #get dimensions
+  n <- nrow(funs)
+  m <- ncol(funs)
+  dt <- diff(t)[2]
+  
+  #normalize to one
+  
+}
