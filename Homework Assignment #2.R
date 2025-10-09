@@ -152,8 +152,62 @@ dist.mat <- function(funs, t){
   #get dimensions
   n <- nrow(funs)
   m <- ncol(funs)
-  dt <- diff(t)[2]
+  dt <- t[2] - t[1]
   
-  #normalize to one
+  #ordinarily would normalize each function, but they already are
   
+  #take square root of densities
+  sq.root <- matrix(0, n, m)
+  for (i in 1:n) {
+    for (j in 1:m) {
+      sq.root[i, j] <- sqrt(funs[i, j])
+    }
+  }
+  
+  #need to get inner product and distances
+  dist <- matrix(0, n,n)
+  for (i in 1:n) {
+    for (j in i:n) {
+      inner.prod <- 0
+      for (k in 1:m){
+        inner.prod <- inner.prod + (sq.root[i,k]*sq.root[j,k])
+      }
+      inner.prod <- inner.prod*dt
+      
+      #take arc cosine and fill upper and lower triangle matrices
+      d <- acos(inner.prod)
+      dist[i, j] <- d
+      dist[j, i] <- d
+    }
+    dist[i, i] <- 0
+  }
+  
+  return(dist)
 }
+
+pairwise.dist.mat <- dist.mat(funs = as.matrix(p5.f), t = as.vector(p5.t))
+
+#part 2, dendogram clustering
+methods <- c("single", "complete", "average", "ward.D2", "median", "centroid")
+
+par(mfrow = c(2, 3)) 
+for (m in methods) {
+  hc <- hclust(as.dist(pairwise.dist.mat), method = m)
+  plot(hc, main = paste("Method:", m), xlab = "", ylab = "Distance", sub = "")
+}
+par(mfrow = c(1,1))
+
+
+#part 3 and 4, generate MDS plot
+hc <- hclust(as.dist(pairwise.dist.mat), method = "average")
+
+#clustering by K clusters and getting labels, cuts clustering tree (produced by hclust)
+#into a given number of clusters
+k <- 3
+grp <- cutree(hc, k = k)
+
+xy2 <- cmdscale(as.dist(pairwise.dist.mat), k = 2)
+plot(xy2, col = grp, pch = 19, xlab = "MDS-1", ylab = "MDS-2",
+     main = "MDS colored by cluster")
+text(xy2, labels = paste0("g", seq_along(grp)), pos = 3, cex = 0.8)
+legend("topright", legend = levels(factor(grp)), col = 1:length(unique(grp)), pch = 19)
