@@ -148,9 +148,9 @@ karcher_mean_S2 <- function(Fdat, iterations, tolerance, step_size = 0.5){
     vbar <- c(0, 0, 0)
     
     #need the average log map at mu
-    for (j in 1:ncol(x)) {
+    for (j in 1:ncol(Fdat)) {
       #cosine of the angle between mu and each data point
-      cosine <- sum(mu*x[, i])
+      cosine <- sum(mu*Fdat[, j])
       
       #running into NaN values.  This seemed to fix it
       if (cosine > 1){
@@ -166,13 +166,12 @@ karcher_mean_S2 <- function(Fdat, iterations, tolerance, step_size = 0.5){
       #check for is the angle is too small
       #log map, projecting into the tangent plane
       #computing norm of v
-      if (th > 1e-14) {
-        #x_j -
-        v <- x[, j] - (c*mu)
+      if (theta > 1e-14) {
+        v <- Fdat[, j] - (cosine*mu)
         sv <- sqrt(sum(v*v))
         
         #tangent* distance
-        vbar <- vbar + (th/sv)*v
+        vbar <- vbar + (theta/sv)*v
       }
     
     }
@@ -186,28 +185,63 @@ karcher_mean_S2 <- function(Fdat, iterations, tolerance, step_size = 0.5){
     #checking to see if the normalized length of mean tangent vector is below the 
     #tolerance
     if (v_norm < tolerance) {
-      return(list(mu = mu, iters = iter - 1, converged = TRUE))
+      return(list(mu = mu, iters = iterations - 1, converged = TRUE))
     }
     
     #if not below tolerance, update using the exponential mapping
-    step <- alpha * nv
-    mu   <- cos(step)*mu + sin(step)*(vbar / nv)
+    step <- step_size * v_norm
+    mu   <- cos(step)*mu + sin(step)*(vbar / v_norm)
     mu <- mu / sqrt(sum(mu*mu))
   }
   
   return(list(mu = mu, iters = iterations, converged = FALSE))
   
+  #whether you break or don't, you return a list of the mu, number of iterations,
+  #and whether the algorithm converges or not
 }
 
 
 
 
 #loading in data for S2
+#first S2 dataset
 S2.dat1 <- readMat("Datasets/HW2/Problem 4/S2DataFile1.mat")
 str(S2.dat1)
 
-#S2 mean
+#S2 mean euclidean mean
 extrinsic_mean1 <- extrinsic_mean_S2(Fdat = S2.dat1$x)
+
+#Karcher mean
+karcher_mean1 <- karcher_mean_S2(Fdat = S2.dat1$x, iterations = 10000, tolerance = 1e-16)
+
+extrinsic_mean1
+karcher_mean1$mu
+
+
+
+#second S2 dataset
+S2.dat2 <- readMat("Datasets/HW2/Problem 4/S2DataFile2.mat")
+str(S2.dat2)
+
+#S2 mean euclidean mean
+extrinsic_mean2 <- extrinsic_mean_S2(Fdat = S2.dat2$x)
+
+#Karcher mean
+karcher_mean2 <- karcher_mean_S2(Fdat = S2.dat2$x, iterations = 10000, tolerance = 1e-12)
+
+extrinsic_mean2
+karcher_mean2$mu
+
+
+#what about S^infinity
+Sinf.dat1 <- readMat("Datasets/HW2/Problem 4/HilbertSphereDataFile1.mat")
+str(Sinf.dat1)
+
+
+
+
+
+
 
 
 #Problem 5
