@@ -203,7 +203,12 @@ karcher_mean_S2 <- function(Fdat, iterations, tolerance, step_size = 0.5){
 
 #euclidean function for S_infinity
 euclidean_mean_S_infinity <- function(mat, t){
+  dt <- diff(t)[2]
   
+  mu <- rowMeans(mat)
+  mu <- mu / sqrt(sum(mu^2) * dt)
+  
+  return(mu)
 }
 
 #Karcher function for S_infinity
@@ -294,6 +299,7 @@ karcher_mean2$mu
 Sinf.dat1 <- readMat("Datasets/HW2/Problem 4/HilbertSphereDataFile1.mat")
 str(Sinf.dat1)
 
+euclid_s_inf <- euclidean_mean_S_infinity(mat = t(Sinf.dat1$h))
 kerchet_s_inf <- karcher_mean_S_infinity(mat = t(Sinf.dat1$h), t = as.vector(Sinf.dat1$t))
 
 
