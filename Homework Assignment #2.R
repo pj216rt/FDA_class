@@ -57,13 +57,15 @@ time.grid <- seq(0,1,length.out = num.points)
 #building points
 f1 <- f_t(time.grid, a = 2, b = 5)
 f2 <- f_t(time.grid, a = 2, b = 2)
-
+f1n <- f1 / sqrt(sum(f1^2))
+f2n <- f2 / sqrt(sum(f2^2))
 
 #rows are functions, columns are values of a function at a time point
 #smooth function connecting f1 and f2?
 path <- problem2(p=f1, q=f2, n_steps = 11)
 
-yr <- range(c(path, f1, f2))
+#for the range.  Otherwise plot doesn't fit
+yr <- range(c(path, f1n, f2n))
 
 matplot(time.grid, t(path), type = "l", lty = 1, lwd = 1,
         xlab = "t", ylab = "f(t)",
@@ -71,8 +73,8 @@ matplot(time.grid, t(path), type = "l", lty = 1, lwd = 1,
         ylim = yr)
 
 #endpoints
-lines(time.grid, f1, lwd = 2, col = "red")
-lines(time.grid, f2, lwd = 2, col = "blue")
+lines(time.grid, f1n, lwd = 2, col = "red")
+lines(time.grid, f2n, lwd = 2, col = "blue")
 legend("topright", legend = c("f1","f2"),
        col = c("red","blue"), lwd = 2)
 
@@ -104,19 +106,24 @@ exp_mapping <- function(p, v){
   p <- p / sqrt(sum(p^2))
   v_norm <- sqrt(sum(v^2))
   
-  #formula for exponential mapping
+  #formula for exponential mapping and normalize
   out <- (cos(v_norm)*p) + (sin(v_norm)*(v/v_norm))
+  out / sqrt(sum(out^2))
   
   return(out)
 }
 
 #computing inverse exponent of f2 and then compute exp(v)
-v = inv_exp_mapping(f1, f2)
-exp_v <- exp_mapping(f1,v)
+#normalize f1 and f2
+f1n <- f1 / sqrt(sum(f1^2))
+f2n <- f2 / sqrt(sum(f2^2))
+
+v <- inv_exp_mapping(f1n, f2n)
+exp_v <- exp_mapping(f1n,v)
 
 #may need to compute the norm
-
-
+l2_err <- sqrt(sum((exp_v - f2n)^2))
+cat(l2_err)
 
 #problem 4
 #intrinsic mean and the Ferchet mean?
@@ -126,20 +133,14 @@ exp_v <- exp_mapping(f1,v)
 
 
 #loading in data for S2
-S2.dat1 <- readMat("Datasets/HW2/Problem 4/S2DataFile1.mat")
-dat1.X <- S2.dat1$x
-X <- t(dat1.X)
-
-
-Xu <- X/rowSums(X*X)
-mu <- colMeans(Xu)
-mu / sqrt(sum(mu*mu))
+S2.dat1 <- readMat("Datasets/HW4/S2DataFile1.mat")
+str(S2.dat1)
 
 
 #Problem 5
 #given a set of pdfs on [0,1].  Need to cluster them according to Fisher-Rao
 
-p5.dat <- readMat("Datasets/HW2/Problem 5/PdfClusteringData.mat")
+p5.dat <- readMat("Datasets/HW4/PdfClusteringData.mat")
 str(p5.dat)
 
 #part 1.  compute the pairwise distance matrix
@@ -154,7 +155,11 @@ dist.mat <- function(funs, t){
   m <- ncol(funs)
   dt <- t[2] - t[1]
   
-  #ordinarily would normalize each function, but they already are
+  #normalize each function
+  for (i in 1:n) {
+    integral_i <- sum(funs[i, ] * dt)
+    funs[i, ] <- funs[i, ]/integral_i
+  }
   
   #take square root of densities
   sq.root <- matrix(0, n, m)
@@ -174,6 +179,14 @@ dist.mat <- function(funs, t){
       }
       inner.prod <- inner.prod*dt
       
+      #running into NaN values.  This seemed to fix it
+      if (inner.prod > 1){
+        inner.prod <- 1
+      } 
+      if (inner.prod < -1){
+        inner.prod <- -1
+      } 
+      
       #take arc cosine and fill upper and lower triangle matrices
       d <- acos(inner.prod)
       dist[i, j] <- d
@@ -187,7 +200,13 @@ dist.mat <- function(funs, t){
 
 pairwise.dist.mat <- dist.mat(funs = as.matrix(p5.f), t = as.vector(p5.t))
 
-#part 2, dendogram clustering
+#plotting heatmap
+heatmap(pairwise.dist.mat,
+        Rowv = NA, Colv = NA,
+        main = "Fisher–Rao Pairwise Distance Matrix",
+        xlab = "PDF Number", ylab = "PDF Number")
+
+#part 2, dendogram clustering.  List of linkage options
 methods <- c("single", "complete", "average", "ward.D2", "median", "centroid")
 
 par(mfrow = c(2, 3)) 
