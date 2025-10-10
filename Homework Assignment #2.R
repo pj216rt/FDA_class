@@ -137,8 +137,42 @@ extrinsic_mean_S2 <- function(Fdat){
 
 
 #function that minimizes the geodesdic distances of the data
-frechet_mean_S2 <- function(Fdat, iterations){
+#pg 238 in Anujs textbook
+#need some number of iterations and a tolerance to stop early
+karcher_mean_S2 <- function(Fdat, iterations, tolerance){
+  #need to initialize a guess.  Use the extrinsic mean
+  mu <- extrinsic_mean_S2(Fdat)
   
+  #iterating 
+  for (k in 1:iterations) {
+    vbar <- c(0, 0, 0)
+    
+    #need the average log map at mu
+    for (j in 1:ncol(x)) {
+      #cosine of the angle between mu and each data point
+      cosine <- sum(mu*x[, i])
+      
+      #running into NaN values.  This seemed to fix it
+      if (cosine > 1){
+        cosine <- 1
+      } 
+      if (cosine < -1){
+        cosine <- -1
+      } 
+      
+      #angle
+      theta <- acos(cosine)
+      
+      if (th > 1e-14) {
+        #x_j -
+        v <- x[, j] - (c*mu)
+        sv <- sqrt(sum(v*v))
+        
+        #tangent* distance
+        vbar <- vbar + (th/sv)*v
+      }
+    }
+  }
 }
 
 #loading in data for S2
