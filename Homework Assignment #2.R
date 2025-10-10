@@ -126,21 +126,33 @@ l2_err <- sqrt(sum((exp_v - f2n)^2))
 cat(l2_err)
 
 #problem 4
-#intrinsic mean and the Ferchet mean?
+#need function for the extrinsic mean
+#just computing the euclidian mean and normalizing
+extrinsic_mean_S2 <- function(Fdat){
+  mean <- rowMeans(Fdat)
+  norm_mean <- sqrt(sum(mean*mean))
+  
+  return(mean/norm_mean)
+}
 
-#need function for the "raw" mean
 
-
+#function that minimizes the geodesdic distances of the data
+frechet_mean_S2 <- function(Fdat, iterations){
+  
+}
 
 #loading in data for S2
-S2.dat1 <- readMat("Datasets/HW4/S2DataFile1.mat")
+S2.dat1 <- readMat("Datasets/HW2/Problem 4/S2DataFile1.mat")
 str(S2.dat1)
+
+#S2 mean
+extrinsic_mean1 <- extrinsic_mean_S2(Fdat = S2.dat1$x)
 
 
 #Problem 5
 #given a set of pdfs on [0,1].  Need to cluster them according to Fisher-Rao
 
-p5.dat <- readMat("Datasets/HW4/PdfClusteringData.mat")
+p5.dat <- readMat("Datasets/HW2/Problem 5/PdfClusteringData.mat")
 str(p5.dat)
 
 #part 1.  compute the pairwise distance matrix
@@ -227,6 +239,6 @@ grp <- cutree(hc, k = k)
 
 xy2 <- cmdscale(as.dist(pairwise.dist.mat), k = 2)
 plot(xy2, col = grp, pch = 19, xlab = "MDS-1", ylab = "MDS-2",
-     main = "MDS colored by cluster")
+     main = "2D MDS colored by cluster")
 text(xy2, labels = paste0("g", seq_along(grp)), pos = 3, cex = 0.8)
-legend("topright", legend = levels(factor(grp)), col = 1:length(unique(grp)), pch = 19)
+legend("bottomleft", legend = levels(factor(grp)), col = 1:length(unique(grp)), pch = 19)
