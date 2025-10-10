@@ -245,20 +245,16 @@ karcher_mean_S_infinity <- function(mat, t, iterations = 1000, tolerance = 1e-12
       #distance on the sphere
       theta <- acos(cosine)
       
-      if (theta > 1e-14) {
-        v  <- mat[, j] - cosine*mu            
-        sv <- sqrt(sum(v*v)*dt)             
-        if (sv > 1e-14){
-          vbar <- vbar + (theta / sv)*v
-        } 
-      }
+      v  <- mat[, j] - cosine*mu            
+      sv <- sqrt(sum(v*v)*dt)
+      vbar <- vbar + (theta / sv)*v
     }
     
     #average direction
     vbar  <- vbar / k
     vnorm <- sqrt(sum(vbar * vbar) * dt)
     
-    #if the normalized v is below the tolerance
+    #if the normalized v is below the tolerance, return list
     if (vnorm < tolerance) {
       return(list(mu = mu, iters = iter - 1, converged = TRUE))
     }
@@ -315,6 +311,10 @@ str(Sinf.dat1)
 euclid_s_inf1 <- euclidean_mean_S_infinity(mat = t(Sinf.dat1$h), t = as.vector(Sinf.dat1$t))
 kerchet_s_inf1 <- karcher_mean_S_infinity(mat = t(Sinf.dat1$h), t = as.vector(Sinf.dat1$t))
 
+#how to computel2_diff <- sqrt(sum((muE - muK)^2) * dt)
+dt <- diff(as.vector(Sinf.dat1$t))[1]
+diff1 <- sqrt(sum((euclid_s_inf1 - kerchet_s_inf1$mu)^2)*dt)
+diff1
 
 #second Sinf dataset
 Sinf.dat2 <- readMat("Datasets/HW2/Problem 4/HilbertSphereDataFile2.mat")
@@ -322,6 +322,9 @@ str(Sinf.dat2)
 
 euclid_s_inf2 <- euclidean_mean_S_infinity(mat = t(Sinf.dat2$h), t = as.vector(Sinf.dat2$t))
 kerchet_s_inf2 <- karcher_mean_S_infinity(mat = t(Sinf.dat2$h), t = as.vector(Sinf.dat2$t))
+
+diff2 <- sqrt(sum((euclid_s_inf2 - kerchet_s_inf2$mu)^2)*dt)
+diff2
 
 #Problem 5
 #given a set of pdfs on [0,1].  Need to cluster them according to Fisher-Rao
