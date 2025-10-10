@@ -200,6 +200,51 @@ karcher_mean_S2 <- function(Fdat, iterations, tolerance, step_size = 0.5){
   #and whether the algorithm converges or not
 }
 
+#function for S_infinity
+karcher_mean_S_infinity <- function(mat, t, iterations = 1000, tolerance = 1e-12, 
+                                    step_size=0.5){
+  
+  #get width for integral 
+  df <- diff(t)[2]
+  
+  mu <- rowMeans(H)
+  mu <- mu / sqrt(sum(mu^2) * dt)
+  
+  for (iter in 1:iterations) {
+    vbar <- rep(0, m)
+    
+    # Average log map at mu
+    for (j in 1:k) {
+      cval  <- sum(mu * H[, j]) * dt            
+           
+      theta <- acos(cval)
+      
+      if (theta > 1e-14) {
+        v  <- H[, j] - cval * mu                
+        sv <- sqrt(sum(v * v) * dt)             # ~ sin(theta)
+        if (sv > 1e-14) vbar <- vbar + (theta / sv) * v   # log_mu(x_j)
+      }
+    }
+    
+    vbar  <- vbar / k
+    vnorm <- sqrt(sum(vbar * vbar) * dt)
+    
+    #checking if the mean tangent is below the tangent
+    if (vnorm < tolerance) {
+      return(list(mu = mu, iters = iter - 1, converged = TRUE))
+    }
+    
+    # Exponential map update on the Hilbert sphere
+    step <- step_size * vnorm
+    mu   <- cos(step) * mu + sin(step) * (vbar / vnorm)
+    
+    # Re-normalize to unit L2 (numerical safety)
+    mu <- mu / sqrt(sum(mu^2) * dt)
+  }
+  
+  list(mu = mu, iters = iterations, converged = FALSE)
+}
+
 
 
 
