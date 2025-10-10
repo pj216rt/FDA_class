@@ -139,7 +139,7 @@ extrinsic_mean_S2 <- function(Fdat){
 #function that minimizes the geodesdic distances of the data
 #pg 238 in Anujs textbook
 #need some number of iterations and a tolerance to stop early
-karcher_mean_S2 <- function(Fdat, iterations, tolerance){
+karcher_mean_S2 <- function(Fdat, iterations, tolerance, step_size = 0.5){
   #need to initialize a guess.  Use the extrinsic mean
   mu <- extrinsic_mean_S2(Fdat)
   
@@ -163,6 +163,9 @@ karcher_mean_S2 <- function(Fdat, iterations, tolerance){
       #angle
       theta <- acos(cosine)
       
+      #check for is the angle is too small
+      #log map, projecting into the tangent plane
+      #computing norm of v
       if (th > 1e-14) {
         #x_j -
         v <- x[, j] - (c*mu)
@@ -171,9 +174,33 @@ karcher_mean_S2 <- function(Fdat, iterations, tolerance){
         #tangent* distance
         vbar <- vbar + (th/sv)*v
       }
+    
     }
+    
+    #mean tangent direction
+    vbar <- vbar / k
+    
+    #normalize
+    v_norm <- sqrt(sum(vbar*vbar))
+    
+    #checking to see if the normalized length of mean tangent vector is below the 
+    #tolerance
+    if (v_norm < tolerance) {
+      return(list(mu = mu, iters = iter - 1, converged = TRUE))
+    }
+    
+    #if not below tolerance, update using the exponential mapping
+    step <- alpha * nv
+    mu   <- cos(step)*mu + sin(step)*(vbar / nv)
+    mu <- mu / sqrt(sum(mu*mu))
   }
+  
+  return(list(mu = mu, iters = iterations, converged = FALSE))
+  
 }
+
+
+
 
 #loading in data for S2
 S2.dat1 <- readMat("Datasets/HW2/Problem 4/S2DataFile1.mat")
