@@ -200,41 +200,53 @@ karcher_mean_S2 <- function(Fdat, iterations, tolerance, step_size = 0.5){
   #and whether the algorithm converges or not
 }
 
-#function for S_infinity
-karcher_mean_S_infinity <- function(mat, t, iterations = 1000, tolerance = 1e-12, 
-                                    step_size=0.5){
+
+#euclidean function for S_infinity
+euclidean_mean_S_infinity <- function(mat, t){
   
-  #get width for integral 
-  df <- diff(t)[2]
+}
+
+#Karcher function for S_infinity
+karcher_mean_S_infinity <- function(mat, t, iterations = 1000, tolerance = 1e-12, step_size = 0.5) {
   
-  mu <- rowMeans(H)
+  m  <- length(t)
+  k  <- ncol(mat)
+  dt <- diff(t)[2]   
+
+  
+  mu <- rowMeans(mat)
   mu <- mu / sqrt(sum(mu^2) * dt)
   
   for (iter in 1:iterations) {
     vbar <- rep(0, m)
     
-    # Average log map at mu
+    #compute average log map
     for (j in 1:k) {
-      cval  <- sum(mu * H[, j]) * dt            
-           
-      theta <- acos(cval)
+      cosine <- sum(mu * mat[, j]) * dt         
+      if (cosine > 1){
+        cosine <- 1
+      } 
+      if (cosine < -1){
+        cosine <- -1
+      }
+      
+      theta <- acos(cosine)
       
       if (theta > 1e-14) {
-        v  <- H[, j] - cval * mu                
-        sv <- sqrt(sum(v * v) * dt)             # ~ sin(theta)
-        if (sv > 1e-14) vbar <- vbar + (theta / sv) * v   # log_mu(x_j)
+        v  <- mat[, j] - cosine * mu            
+        sv <- sqrt(sum(v * v) * dt)             
+        if (is.finite(sv) && sv > 1e-14) vbar <- vbar + (theta / sv) * v
       }
     }
     
     vbar  <- vbar / k
     vnorm <- sqrt(sum(vbar * vbar) * dt)
     
-    #checking if the mean tangent is below the tangent
-    if (vnorm < tolerance) {
+    if (!is.finite(vnorm) || vnorm < tolerance) {
       return(list(mu = mu, iters = iter - 1, converged = TRUE))
     }
     
-    # Exponential map update on the Hilbert sphere
+    #exp update
     step <- step_size * vnorm
     mu   <- cos(step) * mu + sin(step) * (vbar / vnorm)
     
@@ -282,7 +294,7 @@ karcher_mean2$mu
 Sinf.dat1 <- readMat("Datasets/HW2/Problem 4/HilbertSphereDataFile1.mat")
 str(Sinf.dat1)
 
-
+kerchet_s_inf <- karcher_mean_S_infinity(mat = t(Sinf.dat1$h), t = as.vector(Sinf.dat1$t))
 
 
 
