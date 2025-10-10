@@ -216,9 +216,12 @@ karcher_mean_S_infinity <- function(mat, t, iterations = 1000, tolerance = 1e-12
   
   m  <- length(t)
   k  <- ncol(mat)
+  
+  #getting the width for the Reimann approx
   dt <- diff(t)[2]   
 
   
+  #getting the extrinsic mean as an initial guess and projecting onto unit sphere
   mu <- rowMeans(mat)
   mu <- mu / sqrt(sum(mu^2) * dt)
   
@@ -227,7 +230,11 @@ karcher_mean_S_infinity <- function(mat, t, iterations = 1000, tolerance = 1e-12
     
     #compute average log map
     for (j in 1:k) {
-      cosine <- sum(mu * mat[, j]) * dt         
+      
+      #inner product
+      cosine <- sum(mu * mat[, j])*dt
+      
+      #kept getting NAs without bounding cosine
       if (cosine > 1){
         cosine <- 1
       } 
@@ -235,27 +242,30 @@ karcher_mean_S_infinity <- function(mat, t, iterations = 1000, tolerance = 1e-12
         cosine <- -1
       }
       
+      #distance on the sphere
       theta <- acos(cosine)
       
       if (theta > 1e-14) {
-        v  <- mat[, j] - cosine * mu            
-        sv <- sqrt(sum(v * v) * dt)             
-        if (is.finite(sv) && sv > 1e-14) vbar <- vbar + (theta / sv) * v
+        v  <- mat[, j] - cosine*mu            
+        sv <- sqrt(sum(v*v)*dt)             
+        if (sv > 1e-14){
+          vbar <- vbar + (theta / sv)*v
+        } 
       }
     }
     
+    #average direction
     vbar  <- vbar / k
     vnorm <- sqrt(sum(vbar * vbar) * dt)
     
-    if (!is.finite(vnorm) || vnorm < tolerance) {
+    #if the normalized v is below the tolerance
+    if (vnorm < tolerance) {
       return(list(mu = mu, iters = iter - 1, converged = TRUE))
     }
     
     #exp update
     step <- step_size * vnorm
     mu   <- cos(step) * mu + sin(step) * (vbar / vnorm)
-    
-    # Re-normalize to unit L2 (numerical safety)
     mu <- mu / sqrt(sum(mu^2) * dt)
   }
   
@@ -295,17 +305,23 @@ extrinsic_mean2
 karcher_mean2$mu
 
 
+
+
 #what about S^infinity
+#first Sinf dataset
 Sinf.dat1 <- readMat("Datasets/HW2/Problem 4/HilbertSphereDataFile1.mat")
 str(Sinf.dat1)
 
-euclid_s_inf <- euclidean_mean_S_infinity(mat = t(Sinf.dat1$h))
-kerchet_s_inf <- karcher_mean_S_infinity(mat = t(Sinf.dat1$h), t = as.vector(Sinf.dat1$t))
+euclid_s_inf1 <- euclidean_mean_S_infinity(mat = t(Sinf.dat1$h), t = as.vector(Sinf.dat1$t))
+kerchet_s_inf1 <- karcher_mean_S_infinity(mat = t(Sinf.dat1$h), t = as.vector(Sinf.dat1$t))
 
 
+#second Sinf dataset
+Sinf.dat2 <- readMat("Datasets/HW2/Problem 4/HilbertSphereDataFile2.mat")
+str(Sinf.dat2)
 
-
-
+euclid_s_inf2 <- euclidean_mean_S_infinity(mat = t(Sinf.dat2$h), t = as.vector(Sinf.dat2$t))
+kerchet_s_inf2 <- karcher_mean_S_infinity(mat = t(Sinf.dat2$h), t = as.vector(Sinf.dat2$t))
 
 #Problem 5
 #given a set of pdfs on [0,1].  Need to cluster them according to Fisher-Rao
